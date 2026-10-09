@@ -56,11 +56,61 @@ other). Workarounds:
 - Expose a temporary public URL with a tunnel, e.g. `ngrok http 3000` or
   `cloudflared tunnel --url http://localhost:3000`, and share that URL.
 
+## Deploy to Render (free, public URL)
+
+Hosting on Render gives you a public HTTPS URL anyone can reach — no LAN,
+firewall, or client-isolation issues. This repo includes a `render.yaml`
+blueprint, so setup is a few clicks. The server already reads `process.env.PORT`
+and exposes a `/health` endpoint, which is all Render needs.
+
+### Option A — Blueprint (uses render.yaml, recommended)
+1. Push this repo to GitHub (already done).
+2. Go to <https://dashboard.render.com> and sign in with GitHub.
+3. Click **New +** → **Blueprint**.
+4. Select your `sequence-multiplay` repository and approve access if prompted.
+5. Render reads `render.yaml` and proposes a free **web service**. Click
+   **Apply** / **Create**.
+6. Wait for the first build (`npm install`) and deploy to finish. You'll get a
+   URL like `https://sequence-multiplay.onrender.com`.
+7. Open that URL, create a room, and share the same URL + room code with players.
+
+### Option B — Manual (no blueprint)
+1. Dashboard → **New +** → **Web Service** → connect the GitHub repo.
+2. Settings:
+   - **Runtime**: Node
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Instance Type**: Free
+   - **Health Check Path**: `/health`
+3. Click **Create Web Service** and wait for the deploy.
+
+### Good to know about the free tier
+- **Cold starts**: the free instance **sleeps after ~15 min of inactivity** and
+  takes ~30–60s to wake on the next visit. Fine for casual game nights; the
+  first player just waits a bit for it to spin up.
+- **Auto-deploy**: with `autoDeploy: true`, every push to your default branch
+  triggers a redeploy automatically.
+- **In-memory state**: rooms/games live in memory, so a redeploy or sleep
+  **ends any game in progress**. Keep the free tier to a single instance (the
+  blueprint does this); don't scale to multiple instances or rooms won't be
+  shared across them.
+- **No secrets needed**: there are no API keys or env vars to configure. Your
+  local corporate npm proxy does **not** affect Render — it builds in its own
+  clean environment.
+
+### Updating the deployed game
+```bash
+git add .
+git commit -m "your change"
+git push        # Render auto-deploys the new version
+```
+
 ## Change the port
 ```bash
 # PowerShell
 $env:PORT=4000; npm start
 ```
+Render sets `PORT` for you automatically — no action needed there.
 
 ## Project layout
 ```

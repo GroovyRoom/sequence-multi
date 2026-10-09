@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 3000;
 const REQUIRED_PLAYERS = 4;
 
 const app = express();
+app.get("/health", (_req, res) => res.status(200).send("ok"));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 const server = http.createServer(app);
