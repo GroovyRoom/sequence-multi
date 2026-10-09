@@ -1,0 +1,14 @@
+{
+  "name": "sequence-game",
+  "version": "1.0.0",
+  "description": "Multiplayer Sequence board game (4 players, 2 teams) over LAN",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

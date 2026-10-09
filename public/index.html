@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sequence</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Lobby -->
+  <section id="lobby" class="screen">
+    <h1>Sequence</h1>
+    <p class="tagline">4 players &middot; 2 random teams</p>
+
+    <div class="card">
+      <label>Your name
+        <input id="name" maxlength="16" placeholder="e.g. Alex" />
+      </label>
+
+      <div class="row">
+        <button id="createBtn">Create room</button>
+      </div>
+
+      <div class="divider">or</div>
+
+      <div class="row">
+        <input id="joinCode" maxlength="4" placeholder="ROOM CODE" class="code-input" />
+        <button id="joinBtn">Join</button>
+      </div>
+
+      <p id="lobbyError" class="error"></p>
+    </div>
+
+    <div id="roomPanel" class="card hidden">
+      <h2>Room <span id="roomCode" class="mono"></span></h2>
+      <p class="hint">Share this code or the network URL with 3 others.</p>
+      <ul id="playerList"></ul>
+      <button id="startBtn" disabled>Start game (need 4)</button>
+    </div>
+  </section>
+
+  <!-- Game -->
+  <section id="game" class="screen hidden">
+    <header class="topbar">
+      <div id="status" class="status"></div>
+      <div id="scores" class="scores"></div>
+    </header>
+
+    <div class="play-area">
+      <div id="board" class="board"></div>
+    </div>
+
+    <footer class="handbar">
+      <div id="handLabel" class="hand-label"></div>
+      <div id="hand" class="hand"></div>
+      <div id="moveHint" class="move-hint"></div>
+    </footer>
+  </section>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
