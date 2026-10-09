@@ -39,13 +39,53 @@ function shuffle(arr) {
   return arr;
 }
 
-const CARDS_PER_PLAYER = { 2: 7, 3: 6, 4: 6 };
+// Jason2 Rule — always 2 teams. Keyed by player count:
+// { teams, cards (per player), win (sequences needed) }
+const MODES = {
+  2: { teams: 2, cards: 5, win: 2 },
+  4: { teams: 2, cards: 5, win: 3 },
+  6: { teams: 2, cards: 4, win: 3 },
+  8: { teams: 2, cards: 3, win: 3 },
+};
 
-// Fisher-Yates on seat order to randomize team assignment.
-// For 4 players / 2 teams, seats alternate teams: seat 0,2 => team 0; seat 1,3 => team 1.
-export function assignTeams(playerIds) {
+export const ALLOWED_PLAYER_COUNTS = [2, 4, 6, 8];
+
+export function modeFor(numPlayers) {
+  return MODES[numPlayers] || MODES[2];
+}
+
+// Fisher-Yates on seat order to randomize team assignment, then alternate teams
+// around the table so teammates are never adjacent (per the rules).
+// seat % teams: 2 teams -> ABAB.
+export function assignTeams(playerIds, teams = 2) {
   const seats = shuffle([...playerIds]);
-  return seats.map((id, seat) => ({ id, seat, team: seat % 2 }));
+  return seats.map((id, seat) => ({ id, seat, team: seat % teams }));
+}
+
+// Build seats from an explicit {playerId -> team} map (used by the rematch
+// shuffle rule so we can force a different team composition). Players of the
+// same team are still interleaved around the table.
+export function seatsFromTeamMap(teamMap) {
+  const byTeam = {};
+  for (const [id, team] of Object.entries(teamMap)) {
+    (byTeam[team] ||= []).push(id);
+  }
+  const teams = Object.keys(byTeam).map(Number).sort();
+  const seats = [];
+  let seat = 0;
+  // Interleave: take one from each team in turn.
+  let remaining = true;
+  while (remaining) {
+    remaining = false;
+    for (const t of teams) {
+      const id = byTeam[t].shift();
+      if (id !== undefined) {
+        seats.push({ id, seat: seat++, team: t });
+        remaining = true;
+      }
+    }
+  }
+  return seats;
 }
 
 const DIRECTIONS = [
@@ -56,11 +96,16 @@ const DIRECTIONS = [
 ];
 
 export class SequenceGame {
-  constructor(playerIds) {
+  // opts.teamMap: optional { playerId -> team } to force a specific composition
+  //   (used to enforce the rematch team-shuffle rule).
+  constructor(playerIds, opts = {}) {
     this.numPlayers = playerIds.length;
-    this.seats = assignTeams(playerIds); // [{id, seat, team}]
-    this.numTeams = 2;
-    this.sequencesToWin = 2; // 2 teams => 2 sequences
+    const mode = modeFor(this.numPlayers);
+    this.numTeams = mode.teams;
+    this.sequencesToWin = mode.win;
+    this.seats = opts.teamMap
+      ? seatsFromTeamMap(opts.teamMap)
+      : assignTeams(playerIds, this.numTeams); // [{id, seat, team}]
 
     // board[r][c] = { team } chip owner, or null. Free corners are shared/neutral.
     this.board = Array.from({ length: BOARD_SIZE }, () =>
@@ -74,16 +119,31 @@ export class SequenceGame {
     this.deck = shuffle(buildDeck());
     this.discard = [];
     this.hands = {}; // playerId -> [cards]
-    const per = CARDS_PER_PLAYER[this.numPlayers] || 6;
+    const per = mode.cards;
     for (const { id } of this.seats) {
       this.hands[id] = this.deck.splice(0, per);
     }
 
     this.turnOrder = this.seats.map((s) => s.id); // seat order = turn order (clockwise)
     this.currentSeat = 0;
-    this.sequenceCount = { 0: 0, 1: 0 }; // per team
+    this.sequenceCount = {}; // per team
+    for (let t = 0; t < this.numTeams; t++) this.sequenceCount[t] = 0;
     this.sequencedCells = []; // list of completed sequences (arrays of [r,c]) for UI
     this.winner = null; // team index or null
+  }
+
+  // Map of playerId -> team, and a canonical signature of the team composition
+  // (unordered sets of members per team) for the rematch-shuffle rule.
+  teamMap() {
+    return Object.fromEntries(this.seats.map((s) => [s.id, s.team]));
+  }
+  teamSignature() {
+    const byTeam = {};
+    for (const s of this.seats) (byTeam[s.team] ||= []).push(s.id);
+    return Object.values(byTeam)
+      .map((members) => members.slice().sort().join("+"))
+      .sort()
+      .join("|");
   }
 
   teamOf(playerId) {
@@ -278,6 +338,8 @@ export class SequenceGame {
       sequencesToWin: this.sequencesToWin,
       sequencedCells: this.sequencedCells,
       deckRemaining: this.deck.length,
+      numTeams: this.numTeams,
+      names: this.names || {},
       winner: this.winner,
     };
   }

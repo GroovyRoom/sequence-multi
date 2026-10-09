@@ -5,6 +5,7 @@ const $ = (id) => document.getElementById(id);
 const lobbyEl = $("lobby");
 const gameEl = $("game");
 const nameInput = $("name");
+const maxPlayersSel = $("maxPlayers");
 const createBtn = $("createBtn");
 const joinBtn = $("joinBtn");
 const joinCode = $("joinCode");
@@ -24,6 +25,12 @@ const handEl = $("hand");
 const handLabel = $("handLabel");
 const moveHint = $("moveHint");
 const banner = $("banner");
+const bannerText = $("bannerText");
+const bannerNote = $("bannerNote");
+const rematchBtn = $("rematchBtn");
+const playersStrip = $("players");
+const deckCount = $("deckCount");
+const chartBody = $("chartBody");
 
 let myId = null;
 let myRoom = null;
@@ -32,7 +39,8 @@ let latest = null; // latest game state
 
 // ---- Lobby ----
 createBtn.onclick = () => {
-  socket.emit("create", { name: nameInput.value.trim() }, (res) => {
+  const maxPlayers = Number(maxPlayersSel.value);
+  socket.emit("create", { name: nameInput.value.trim(), maxPlayers }, (res) => {
     if (!res.ok) return (lobbyError.textContent = res.error || "Error");
     myId = res.playerId;
     myRoom = res.code;
@@ -79,7 +87,7 @@ function renderRooms(rooms) {
         <span class="room-host">${escapeHtml(r.host)}'s game</span>
         <span class="room-meta">code ${r.code} &middot; ${r.count}/${r.required} players</span>
       </div>
-      <button class="join-room" ${full ? "disabled" : ""}>${full ? "Full" : "Join"}</button>`;
+      <button class="join-room" type="button" ${full ? "disabled" : ""}>${full ? "Full" : "Join"}</button>`;
     li.querySelector(".join-room").onclick = () => joinRoom(r.code);
     roomsList.appendChild(li);
   }
@@ -125,6 +133,72 @@ socket.on("game", (state) => {
   render();
 });
 
+// ---- Win/lose chart (Jason2 Rule) ----
+let latestHistory = null;
+socket.on("history", (h) => {
+  latestHistory = h;
+  renderChart(h);
+  renderBannerNote(h);
+});
+
+rematchBtn.onclick = () => {
+  rematchBtn.disabled = true;
+  socket.emit("rematch", {}, (res) => {
+    rematchBtn.disabled = false;
+    if (!res.ok && res.error) bannerNote.textContent = res.error;
+  });
+};
+
+function renderChart(h) {
+  if (!chartBody) return;
+  if (!h || (h.members.length === 0 && h.matches.length === 0)) {
+    chartBody.innerHTML = `<p class="hint">No matches played yet.</p>`;
+    return;
+  }
+  // Per-member win/loss table
+  const rows = h.members
+    .map(
+      (m) => `<tr>
+        <td>${escapeHtml(m.name)}</td>
+        <td class="w">${m.wins}</td>
+        <td class="l">${m.losses}</td>
+      </tr>`
+    )
+    .join("");
+
+  // Match log
+  const log = h.matches
+    .slice()
+    .reverse()
+    .map((mt) => {
+      const t0 = (mt.teams[0] || []).map(escapeHtml).join(", ");
+      const t1 = (mt.teams[1] || []).map(escapeHtml).join(", ");
+      const winTeam = teamName(mt.winnerTeam);
+      return `<li>#${mt.match}: <strong>${winTeam}</strong> won &middot;
+        <span class="t0">${t0}</span> vs <span class="t1">${t1}</span></li>`;
+    })
+    .join("");
+
+  chartBody.innerHTML = `
+    <table class="stats">
+      <thead><tr><th>Player</th><th>W</th><th>L</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <ul class="matchlog">${log || ""}</ul>`;
+}
+
+function renderBannerNote(h) {
+  if (!bannerNote) return;
+  if (h && h.mustShuffle) {
+    bannerNote.textContent =
+      "Same team won twice in a row — teams will be reshuffled next match.";
+    bannerNote.classList.add("warn");
+  } else {
+    bannerNote.textContent = "";
+    bannerNote.classList.remove("warn");
+  }
+}
+
 const SUIT_SYMBOL = { S: "♠", H: "♥", D: "♦", C: "♣" };
 const RED_SUITS = new Set(["H", "D"]);
 
@@ -140,38 +214,70 @@ function isTwoEyed(code) { return code === "JD" || code === "JC"; }
 function isOneEyed(code) { return code === "JH" || code === "JS"; }
 function isJack(code) { return code.startsWith("J"); }
 
-function teamName(t) { return t === 0 ? "Blue" : "Green"; }
+const TEAM_NAMES = ["Blue", "Green"];
+function teamName(t) { return TEAM_NAMES[t] ?? `Team ${t + 1}`; }
+
+function nameOf(s, id) {
+  return (s.names && s.names[id]) || "Player";
+}
 
 function render() {
   const s = latest;
   const myTurn = s.currentPlayerId === s.yourId;
 
-  // status + scores
+  // status
   const turnPlayer = s.seats.find((x) => x.id === s.currentPlayerId);
   statusEl.textContent = myTurn
     ? "Your turn"
-    : `Waiting for ${teamName(turnPlayer?.team)} (seat ${turnPlayer?.seat + 1})`;
+    : `${nameOf(s, s.currentPlayerId)}'s turn (${teamName(turnPlayer?.team)})`;
   statusEl.style.color = myTurn ? "var(--gold)" : "var(--text)";
 
+  // scores (always 2 teams under Jason2 Rule)
   scoresEl.innerHTML = "";
-  for (const t of [0, 1]) {
+  for (let t = 0; t < (s.numTeams || 2); t++) {
     const d = document.createElement("div");
     d.className = `score-chip t${t}`;
-    d.textContent = `${teamName(t)}: ${s.sequenceCount[t]}/${s.sequencesToWin}`;
+    d.textContent = `${teamName(t)}: ${s.sequenceCount[t] ?? 0}/${s.sequencesToWin}`;
     scoresEl.appendChild(d);
   }
 
   handLabel.textContent = `Your team: ${teamName(s.yourTeam)} — click a card, then a highlighted space`;
 
+  renderPlayers(s);
   renderBoard(s, myTurn);
   renderHand(s, myTurn);
   updateHint(s, myTurn);
 
+  // deck count
+  if (deckCount) deckCount.textContent = s.deckRemaining ?? 0;
+
+  // win banner
   if (s.winner !== null) {
     banner.classList.remove("hidden");
     const won = s.winner === s.yourTeam;
-    banner.textContent = `${teamName(s.winner)} wins! ${won ? "🎉 You won!" : ""}`;
-    banner.style.color = s.winner === 0 ? "var(--team0)" : "var(--team1)";
+    bannerText.textContent = `${teamName(s.winner)} wins!${won ? " 🎉 You won!" : ""}`;
+    bannerText.style.color = s.winner === 0 ? "var(--team0)" : "var(--team1)";
+  } else {
+    banner.classList.add("hidden");
+  }
+}
+
+// Turn-order strip: shows every player, their team color, and highlights whose turn it is.
+function renderPlayers(s) {
+  if (!playersStrip) return;
+  playersStrip.innerHTML = "";
+  const ordered = [...s.seats].sort((a, b) => a.seat - b.seat);
+  for (const seat of ordered) {
+    const el = document.createElement("div");
+    el.className = `pstrip t${seat.team}`;
+    if (seat.id === s.currentPlayerId) el.classList.add("current");
+    if (seat.id === s.yourId) el.classList.add("me");
+    const cards = s.handCounts?.[seat.id];
+    el.innerHTML = `
+      <span class="pstrip-dot"></span>
+      <span class="pstrip-name">${escapeHtml(nameOf(s, seat.id))}${seat.id === s.yourId ? " (you)" : ""}</span>
+      <span class="pstrip-cards">${cards ?? "?"}🂠</span>`;
+    playersStrip.appendChild(el);
   }
 }
 

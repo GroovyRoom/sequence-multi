@@ -145,9 +145,12 @@ button.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--acce
   font-weight: 700;
   color: #cdd9ea;
   cursor: default;
+  -webkit-user-select: none;
   user-select: none;
   overflow: hidden;
 }
+/* Card label stays above the chip so you can always read what was played. */
+.cell .rank, .cell .suit { position: relative; z-index: 2; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 .cell.free { background: var(--cell-free); color: #8fe0b0; }
 .cell.free::after { content: "★"; font-size: clamp(12px, 2.2vw, 22px); }
 .cell .rank { opacity: .9; }
@@ -204,11 +207,67 @@ button.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--acce
 }
 .move-hint { color: var(--gold); font-size: 13px; margin-top: 10px; min-height: 18px; }
 
+/* ---- Players turn strip ---- */
+.players-strip {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  margin-bottom: 12px;
+}
+.pstrip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 20px;
+  background: var(--panel2); border: 1px solid #2a3a56;
+  font-size: 13px; font-weight: 600;
+}
+.pstrip-dot { width: 10px; height: 10px; border-radius: 50%; }
+.pstrip.t0 .pstrip-dot { background: var(--team0); }
+.pstrip.t1 .pstrip-dot { background: var(--team1); }
+.pstrip-cards { color: var(--muted); font-size: 12px; }
+.pstrip.current {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(255,207,74,.35);
+}
+.pstrip.me { outline: 1px dashed #52688c; }
+
+/* ---- Deck / draw pile ---- */
+.play-area { gap: 16px; align-items: flex-start; }
+.deck { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 8px; }
+.deck-card {
+  width: 54px; height: 76px; border-radius: 8px;
+  background: linear-gradient(135deg, #3a4e74, #22314c);
+  border: 2px solid #52688c;
+  box-shadow: 0 3px 8px rgba(0,0,0,.5), inset 0 0 0 3px rgba(255,255,255,.05);
+}
+.deck-count { text-align: center; font-weight: 800; font-size: 20px; color: var(--gold); line-height: 1.1; }
+.deck-count small { display: block; font-size: 10px; color: var(--muted); font-weight: 600; }
+
+/* ---- Score chart ---- */
+.chart {
+  margin-top: 18px; background: var(--panel); border: 1px solid #26344e;
+  border-radius: 14px; padding: 16px;
+}
+.chart h3 { margin: 0 0 12px; font-size: 16px; }
+table.stats { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+table.stats th, table.stats td { text-align: left; padding: 6px 10px; font-size: 14px; }
+table.stats thead th { color: var(--muted); border-bottom: 1px solid #2a3a56; font-size: 12px; }
+table.stats td.w { color: var(--team1); font-weight: 800; }
+table.stats td.l { color: var(--red); font-weight: 800; }
+.matchlog { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.matchlog li { padding: 6px 0; border-top: 1px solid #223150; color: var(--muted); }
+.matchlog .t0 { color: #9cc0ff; }
+.matchlog .t1 { color: #a7e9c1; }
+
 /* ---- Banner ---- */
 .banner {
   position: fixed; inset: 0;
   display: flex; align-items: center; justify-content: center;
   background: rgba(5,8,14,.82);
-  font-size: 34px; font-weight: 800; text-align: center;
   z-index: 50;
 }
+.banner-box {
+  background: var(--panel); border: 1px solid #2a3a56; border-radius: 16px;
+  padding: 28px 36px; text-align: center; max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.banner-text { font-size: 34px; font-weight: 800; margin-bottom: 10px; }
+.banner-note { color: var(--muted); font-size: 14px; margin-bottom: 18px; min-height: 18px; }
+.banner-note.warn { color: var(--gold); }

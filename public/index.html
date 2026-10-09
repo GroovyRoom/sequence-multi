@@ -10,22 +10,31 @@
   <!-- Lobby -->
   <section id="lobby" class="screen">
     <h1>Sequence</h1>
-    <p class="tagline">2 players &middot; first to 2 sequences wins</p>
+    <p class="tagline">Jason2 Rule &middot; 2 teams &middot; 2&ndash;8 players</p>
 
     <div class="card">
       <label>Your name
         <input id="name" maxlength="16" placeholder="e.g. Alex" />
       </label>
 
+      <label>Players
+        <select id="maxPlayers">
+          <option value="2">2 players</option>
+          <option value="4">4 players</option>
+          <option value="6">6 players</option>
+          <option value="8">8 players</option>
+        </select>
+      </label>
+
       <div class="row">
-        <button id="createBtn">Create room</button>
+        <button id="createBtn" type="button">Create room</button>
       </div>
 
       <div class="divider">or</div>
 
       <div class="row">
         <input id="joinCode" maxlength="4" placeholder="ROOM CODE" class="code-input" />
-        <button id="joinBtn">Join</button>
+        <button id="joinBtn" type="button">Join</button>
       </div>
 
       <p id="lobbyError" class="error"></p>
@@ -34,7 +43,7 @@
     <div class="card">
       <div class="rooms-header">
         <h2>Open games</h2>
-        <button id="refreshRooms" class="ghost">Refresh</button>
+        <button id="refreshRooms" class="ghost" type="button">Refresh</button>
       </div>
       <ul id="roomsList" class="rooms-list"></ul>
       <p id="noRooms" class="hint">No open games right now. Create one above.</p>
@@ -42,9 +51,9 @@
 
     <div id="roomPanel" class="card hidden">
       <h2>Room <span id="roomCode" class="mono"></span></h2>
-      <p class="hint">Share this code or the network URL with 3 others.</p>
+      <p class="hint">Share this code or the network URL with the other players.</p>
       <ul id="playerList"></ul>
-      <button id="startBtn" disabled>Start game (need 4)</button>
+      <button id="startBtn" type="button" disabled>Start game</button>
     </div>
   </section>
 
@@ -55,8 +64,14 @@
       <div id="scores" class="scores"></div>
     </header>
 
+    <div id="players" class="players-strip"></div>
+
     <div class="play-area">
       <div id="board" class="board"></div>
+      <div id="deck" class="deck">
+        <div class="deck-card"></div>
+        <div class="deck-count"><span id="deckCount">0</span><small>cards left</small></div>
+      </div>
     </div>
 
     <footer class="handbar">
@@ -64,9 +79,20 @@
       <div id="hand" class="hand"></div>
       <div id="moveHint" class="move-hint"></div>
     </footer>
+
+    <section id="chart" class="chart">
+      <h3>Score chart (Jason2 Rule)</h3>
+      <div id="chartBody"></div>
+    </section>
   </section>
 
-  <div id="banner" class="banner hidden"></div>
+  <div id="banner" class="banner hidden">
+    <div class="banner-box">
+      <div id="bannerText" class="banner-text"></div>
+      <div id="bannerNote" class="banner-note"></div>
+      <button id="rematchBtn" type="button">Play again</button>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
