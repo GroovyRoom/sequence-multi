@@ -10,7 +10,7 @@
   <!-- Lobby -->
   <section id="lobby" class="screen">
     <h1>Sequence</h1>
-    <p class="tagline">4 players &middot; 2 random teams</p>
+    <p class="tagline">2 players &middot; first to 2 sequences wins</p>
 
     <div class="card">
       <label>Your name
@@ -29,6 +29,15 @@
       </div>
 
       <p id="lobbyError" class="error"></p>
+    </div>
+
+    <div class="card">
+      <div class="rooms-header">
+        <h2>Open games</h2>
+        <button id="refreshRooms" class="ghost">Refresh</button>
+      </div>
+      <ul id="roomsList" class="rooms-list"></ul>
+      <p id="noRooms" class="hint">No open games right now. Create one above.</p>
     </div>
 
     <div id="roomPanel" class="card hidden">

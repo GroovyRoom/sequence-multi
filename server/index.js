@@ -8,7 +8,7 @@ import { SequenceGame } from "./game.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
-const REQUIRED_PLAYERS = 4;
+const REQUIRED_PLAYERS = 2;
 
 const app = express();
 app.get("/health", (_req, res) => res.status(200).send("ok"));
@@ -45,6 +45,27 @@ function broadcastLobby(code) {
   io.to(code).emit("lobby", lobbyState(room));
 }
 
+// List of rooms anyone can join: not started and not full.
+function publicRooms() {
+  const list = [];
+  for (const [code, room] of rooms) {
+    if (room.started) continue;
+    if (room.players.length >= REQUIRED_PLAYERS) continue;
+    list.push({
+      code,
+      host: room.players[0]?.name || "Player",
+      count: room.players.length,
+      required: REQUIRED_PLAYERS,
+    });
+  }
+  return list;
+}
+
+// Push the open-room list to every connected client (so the main menu updates live).
+function broadcastRooms() {
+  io.emit("openRooms", publicRooms());
+}
+
 function broadcastGame(code) {
   const room = rooms.get(code);
   if (!room || !room.game) return;
@@ -57,6 +78,14 @@ io.on("connection", (socket) => {
   let joinedCode = null;
   let playerId = socket.id;
 
+  // Send the current open-room list to this client right away.
+  socket.emit("openRooms", publicRooms());
+
+  // Allow a client sitting on the menu to request a fresh list on demand.
+  socket.on("listRooms", (_data, cb) => {
+    cb?.({ ok: true, rooms: publicRooms() });
+  });
+
   socket.on("create", ({ name }, cb) => {
     const code = makeRoomCode();
     rooms.set(code, {
@@ -68,6 +97,7 @@ io.on("connection", (socket) => {
     joinedCode = code;
     cb?.({ ok: true, code, playerId });
     broadcastLobby(code);
+    broadcastRooms();
   });
 
   socket.on("join", ({ code, name }, cb) => {
@@ -82,6 +112,7 @@ io.on("connection", (socket) => {
     joinedCode = code;
     cb?.({ ok: true, code, playerId });
     broadcastLobby(code);
+    broadcastRooms();
   });
 
   socket.on("start", (_data, cb) => {
@@ -94,6 +125,7 @@ io.on("connection", (socket) => {
     cb?.({ ok: true });
     broadcastLobby(joinedCode);
     broadcastGame(joinedCode);
+    broadcastRooms(); // started room disappears from the open list
   });
 
   socket.on("move", (action, cb) => {
@@ -112,6 +144,7 @@ io.on("connection", (socket) => {
       room.players = room.players.filter((p) => p.id !== playerId);
       if (room.players.length === 0) rooms.delete(joinedCode);
       else broadcastLobby(joinedCode);
+      broadcastRooms(); // room freed up a slot or was removed
     }
     // If started, we keep the seat so the player can be re-added later (v2).
   });

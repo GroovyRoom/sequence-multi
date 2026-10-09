@@ -13,6 +13,9 @@ const roomPanel = $("roomPanel");
 const roomCodeEl = $("roomCode");
 const playerList = $("playerList");
 const startBtn = $("startBtn");
+const roomsList = $("roomsList");
+const noRooms = $("noRooms");
+const refreshRooms = $("refreshRooms");
 
 const statusEl = $("status");
 const scoresEl = $("scores");
@@ -37,8 +40,9 @@ createBtn.onclick = () => {
   });
 };
 
-joinBtn.onclick = () => {
-  const code = joinCode.value.trim().toUpperCase();
+// Shared join logic used by both the code input and the clickable room list.
+function joinRoom(code) {
+  code = (code || "").trim().toUpperCase();
   if (!code) return (lobbyError.textContent = "Enter a room code");
   socket.emit("join", { code, name: nameInput.value.trim() }, (res) => {
     if (!res.ok) return (lobbyError.textContent = res.error || "Error");
@@ -46,7 +50,46 @@ joinBtn.onclick = () => {
     myRoom = res.code;
     showRoom();
   });
+}
+
+joinBtn.onclick = () => joinRoom(joinCode.value);
+
+refreshRooms.onclick = () => {
+  socket.emit("listRooms", {}, (res) => {
+    if (res?.ok) renderRooms(res.rooms);
+  });
 };
+
+// Live list of open games on the main menu.
+socket.on("openRooms", renderRooms);
+
+function renderRooms(rooms) {
+  roomsList.innerHTML = "";
+  if (!rooms || rooms.length === 0) {
+    noRooms.classList.remove("hidden");
+    return;
+  }
+  noRooms.classList.add("hidden");
+  for (const r of rooms) {
+    const li = document.createElement("li");
+    li.className = "room-item";
+    const full = r.count >= r.required;
+    li.innerHTML = `
+      <div class="room-info">
+        <span class="room-host">${escapeHtml(r.host)}'s game</span>
+        <span class="room-meta">code ${r.code} &middot; ${r.count}/${r.required} players</span>
+      </div>
+      <button class="join-room" ${full ? "disabled" : ""}>${full ? "Full" : "Join"}</button>`;
+    li.querySelector(".join-room").onclick = () => joinRoom(r.code);
+    roomsList.appendChild(li);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
 
 startBtn.onclick = () => {
   socket.emit("start", {}, (res) => {
